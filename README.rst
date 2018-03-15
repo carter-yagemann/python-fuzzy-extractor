@@ -1,4 +1,5 @@
 Fuzzy Extractor
+===============
 
 A Python implementation of fuzzy extractor.
 
