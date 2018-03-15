@@ -1,0 +1,27 @@
+*.py[co]
+__pycache__/
+*.swp
+
+# packages
+*.egg
+*.egg-info
+dist
+build
+eggs
+parts
+bin
+include
+lib
+local
+var
+sdist
+develop-eggs
+.installed.cfg
+.eggs
+.cache
+
+# pytest
+/.pytest_cache
+
+# build docs
+doc/_build/**

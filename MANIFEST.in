@@ -1,0 +1,4 @@
+include COPYING
+include LICENSE
+include *.rst
+include requirements.txt
