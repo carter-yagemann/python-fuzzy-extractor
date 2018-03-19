@@ -34,27 +34,13 @@ from os import urandom
 from hashlib import sha256
 from base64 import b64encode
 
-def _ord(string):
-    """Converts a string into an ord array"""
-    res = list()
-    for char in string:
-        if isinstance(char, int):
-            res.append(char)
-        else:
-            res.append(ord(char))
-    return res
-
-def _str(ords):
-    """Converts an ord array back into a string"""
-    return ''.join(chr(char) for char in ords)
-
-def _xor(ord_a, ord_b):
+def _xor(ba_a, ba_b):
     """Bitwise xor on two ord arrays"""
-    return [val_a ^ val_b for val_a, val_b in zip(ord_a, ord_b)]
+    return [ba_a[index] ^ ba_b[index] for index in range(len(ba_a))]
 
-def _and(ord_a, ord_b):
+def _and(ba_a, ba_b):
     """Bitwise and on two ord arrays"""
-    return [val_a & val_b for val_a, val_b in zip(ord_a, ord_b)]
+    return [ba_a[index] & ba_b[index] for index in range(len(ba_a))]
 
 class DigitalLocker(object):
     """A digital locker primitive"""
@@ -78,17 +64,22 @@ class DigitalLocker(object):
         sec_len -- security parameter. This is used to determine if the locker
         is unlocked successfully with accuracy (1 - 2 ^ -sec_len).
         """
-        value = _ord(value)
+        if isinstance(value, str):
+            value = bytearray(value, 'utf8')
+
+        if isinstance(key, str):
+            key = bytearray(key, 'utf8')
+
         self.hash_func = hash_func
         self.nonce = urandom(32)
 
-        digest = _ord(self._digest(key))
+        digest = bytearray(self._digest(key))
 
         if len(digest) < len(value) + sec_len:
             raise ValueError('Length of value + sec_len cannot exceed hash length')
 
         self.sec_len = len(digest) - len(value)
-        sec = [0] * self.sec_len
+        sec = bytearray(self.sec_len)
         padded_plain = value + sec
         self.cipher = _xor(digest, padded_plain)
         self.is_locked = True
@@ -101,19 +92,22 @@ class DigitalLocker(object):
         if not self.is_locked:
             raise Exception('Cannot unlock a DigitalLocker with nothing in it')
 
-        digest = _ord(self._digest(key))
+        if isinstance(key, str):
+            key = bytearray(key, 'utf8')
+
+        digest = bytearray(self._digest(key))
 
         plain = _xor(digest, self.cipher)
         if plain[-self.sec_len:] != [0] * self.sec_len:
             return None
 
-        return _str(plain[:-self.sec_len])
+        return bytearray(plain[:-self.sec_len])
 
     def _digest(self, key):
         """Digests the nonce and key"""
         hasher = self.hash_func()
         hasher.update(self.nonce)
-        hasher.update(key.encode('utf-8'))
+        hasher.update(key)
         return hasher.digest()
 
 class FuzzyExtractor(object):
@@ -138,7 +132,6 @@ class FuzzyExtractor(object):
         # keys given ham_err and rep_err. See "Reusable Fuzzy Extractors for
         # Low-Entropy Distributions" by Canetti, et al. for details.
         bits = length * 8
-        #const = int(round(float((ham_err * bits)) / (bits * log(bits))))
         const = float(ham_err) / log(bits)
         num_helpers = (bits ** const) * log(float(2) / rep_err, 2)
 
@@ -153,14 +146,17 @@ class FuzzyExtractor(object):
         Keyword arguments:
         value -- the value to generate a key and public helper for.
         """
-        key = _str(_ord(urandom(self.length)))
+        if isinstance(value, str):
+            value = bytearray(value, 'utf8')
+
+        key = bytearray(urandom(self.length))
         helpers = list()
 
         for _ in range(self.num_helpers):
-            mask = _ord(urandom(self.length))
-            vector = _and(mask, _ord(value))
+            mask = bytearray(urandom(self.length))
+            vector = _and(mask, value)
             locker = DigitalLocker()
-            locker.lock(_str(vector), key, hash_func=self.hash_func)
+            locker.lock(bytearray(vector), key, hash_func=self.hash_func)
             helpers.append((locker, mask))
 
         return (key, helpers)
@@ -174,12 +170,15 @@ class FuzzyExtractor(object):
         value -- the value to reproduce a key for.
         helpers -- the previously generated public helper.
         """
+        if isinstance(value, str):
+            value = bytearray(value, 'utf8')
+
         if self.length != len(value):
             raise ValueError('Cannot reproduce key for value of different length')
 
         for locker, mask in helpers:
-            vector = _and(mask, _ord(value))
-            res = locker.unlock(_str(vector))
+            vector = _and(mask, value)
+            res = locker.unlock(bytearray(vector))
             if not res is None:
                 return res
 

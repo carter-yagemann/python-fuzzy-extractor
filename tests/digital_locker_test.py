@@ -33,8 +33,8 @@ def test_locker():
     values = list()
     keys = list()
     for _ in range(150):
-        values.append(''.join(random.choice(chars) for _ in range(30)))
-        keys.append(''.join(random.choice(chars) for _ in range(32)))
+        values.append(bytearray("".join(random.choice(chars) for _ in range(30)), 'utf8'))
+        keys.append(bytearray("".join(random.choice(chars) for _ in range(32)), 'utf8'))
 
     for value, key in zip(values, keys):
         locker = DigitalLocker()
@@ -44,8 +44,8 @@ def test_locker():
 
 def test_lock_exception():
     """Digital lockers should not allow values that are longer than the hash length"""
-    key = 'AABBCCDD'
-    value = 'AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPP'  # This is too long for sha256
+    key = bytearray('AABBCCDD', 'utf8')
+    value = bytearray('AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPP', 'utf8')  # This is too long for sha256
     locker = DigitalLocker()
     with pytest.raises(ValueError):
         locker.lock(key, value)
