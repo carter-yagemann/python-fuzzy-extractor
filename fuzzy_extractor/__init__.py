@@ -33,6 +33,7 @@ from math import log
 from os import urandom
 from hashlib import sha256
 from base64 import b64encode
+from struct import pack, unpack
 
 def _xor(ba_a, ba_b):
     """Bitwise xor on two ord arrays"""
@@ -102,6 +103,38 @@ class DigitalLocker(object):
             return None
 
         return bytearray(plain[:-self.sec_len])
+
+    def pack(self):
+        """Packs the locker for easier storage
+
+        Note, this can only be called when a value is locked inside the locker.
+
+        Also note that it is the caller's responcibility to remember what hashing
+        function was used and to pass this to unpack().
+        """
+        if not self.is_locked:
+            raise Exception('Packing a locker with nothing in it is pointless')
+
+        cipher_len = len(self.cipher)
+        packed = pack('32s', self.nonce)
+        packed += pack('H', self.sec_len)
+        packed += pack('H', cipher_len)
+        packed += pack(str(cipher_len) + 'B', *self.cipher)
+        return packed
+
+    def unpack(self, binary, hash_func=sha256):
+        """Unpacks the locker
+
+        Keyword arguments:
+        binary -- The string produced by pack().
+        hash_func -- The hash function that was used during lock().
+        """
+        self.nonce = unpack('32s', binary[:32])[0]
+        self.sec_len = unpack('H', binary[32:34])[0]
+        cipher_len = unpack('H', binary[34:36])[0]
+        self.cipher = bytearray([binary[off] for off in range(36, 36 + cipher_len)])
+        self.hash_func = hash_func
+        self.is_locked = True
 
     def _digest(self, key):
         """Digests the nonce and key"""

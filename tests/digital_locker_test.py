@@ -55,3 +55,17 @@ def test_unlock_exception():
     locker = DigitalLocker()
     with pytest.raises(Exception):
         locker.unlock('AABBCCDD')
+
+def test_packing():
+    """Tests that packing and unpacking works"""
+    key = bytearray('AAAAAAAA', 'utf8')
+    val = bytearray('BBBBBBBB', 'utf8')
+
+    locker = DigitalLocker()
+    locker.lock(key, val)
+    binary = locker.pack()
+
+    new_locker = DigitalLocker()
+    new_locker.unpack(binary)
+
+    assert new_locker.unlock(key) == val
