@@ -184,13 +184,13 @@ class FuzzyExtractor(object):
 
         key = bytearray(urandom(self.length))
         helpers = list()
+        locker = DigitalLocker()
 
         for _ in range(self.num_helpers):
             mask = bytearray(urandom(self.length))
             vector = _and(mask, value)
-            locker = DigitalLocker()
             locker.lock(bytearray(vector), key, hash_func=self.hash_func)
-            helpers.append((locker, mask))
+            helpers.append((locker.pack(), mask))
 
         return (key, helpers)
 
@@ -209,8 +209,11 @@ class FuzzyExtractor(object):
         if self.length != len(value):
             raise ValueError('Cannot reproduce key for value of different length')
 
-        for locker, mask in helpers:
+        locker = DigitalLocker()
+
+        for locker_bin, mask in helpers:
             vector = _and(mask, value)
+            locker.unpack(locker_bin, self.hash_func)
             res = locker.unlock(bytearray(vector))
             if not res is None:
                 return res
