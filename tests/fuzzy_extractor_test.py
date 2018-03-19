@@ -83,3 +83,12 @@ def test_reproduce_bad():
 
     assert extractor.reproduce(value_good, helpers) == key
     assert extractor.reproduce(value_bad, helpers) != key
+
+def test_encoding():
+    """Test ability to encode and decode non-ASCII characters"""
+    value = '\xFF' * 30
+
+    extractor = FuzzyExtractor(30, 2)
+    key, helpers = extractor.generate(value)
+
+    assert extractor.reproduce(value, helpers) == key

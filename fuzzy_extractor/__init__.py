@@ -24,7 +24,7 @@ __author__ = 'Carter Yagemann'
 __email__ = 'yagemann@gatech.edu'
 __copyright__ = 'Copyright (c) 2018 Carter Yagemann'
 __license__ = 'GPLv3+'
-__version__ = '0.1'
+__version__ = '0.2'
 __url__ = 'https://github.com/carter-yagemann/python-fuzzy-extractor'
 __download_url__ = 'https://github.com/carter-yagemann/python-fuzzy-extractor'
 __description__ = 'A Python implementation of fuzzy extractor'
@@ -119,7 +119,7 @@ class DigitalLocker(object):
 class FuzzyExtractor(object):
     """The most basic non-interactive fuzzy extractor"""
 
-    def __init__(self, length, ham_err, rep_err=0.001):
+    def __init__(self, length, ham_err, rep_err=0.001, hash_func=sha256):
         """Initializes a fuzzy extractor
 
         Keyword arguments:
@@ -129,8 +129,10 @@ class FuzzyExtractor(object):
         (1 - rep_err).
         rep_err -- Reproduce error. The probability that a source value within
         ham_err will not produce the same key (default: 0.001).
+        hash_func -- Hashing function to be used by DigitalLocker (default: sha256).
         """
         self.length = length
+        self.hash_func = hash_func
 
         # Calculate the number of helper values needed to be able to reproduce
         # keys given ham_err and rep_err. See "Reusable Fuzzy Extractors for
@@ -158,7 +160,7 @@ class FuzzyExtractor(object):
             mask = _ord(urandom(self.length))
             vector = _and(mask, _ord(value))
             locker = DigitalLocker()
-            locker.lock(_str(vector), key)
+            locker.lock(_str(vector), key, hash_func=self.hash_func)
             helpers.append((locker, mask))
 
         return (key, helpers)
