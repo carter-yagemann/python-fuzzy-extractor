@@ -92,3 +92,12 @@ def test_encoding():
     key, helpers = extractor.generate(value)
 
     assert extractor.reproduce(value, helpers) == key
+
+def test_locker_args():
+    """Test that locker args passed to FuzzyExtractor work"""
+    val = bytearray('AAAABBBBCCCCDDDD', 'utf8')
+
+    extractor = FuzzyExtractor(len(val), 1, hash_func='sha256', sec_len=3, nonce_len=32)
+    key, helpers = extractor.generate(val)
+
+    assert extractor.reproduce(val, helpers) == key

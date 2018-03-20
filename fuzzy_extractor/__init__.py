@@ -31,7 +31,7 @@ __description__ = 'A Python implementation of fuzzy extractor'
 
 from math import log
 from os import urandom
-from hashlib import sha256
+from hashlib import pbkdf2_hmac
 from base64 import b64encode
 from struct import pack, unpack
 
@@ -46,24 +46,30 @@ def _and(ba_a, ba_b):
 class DigitalLocker(object):
     """A digital locker primitive"""
 
-    def __init__(self):
-        """Initializes a digital locker"""
+    def __init__(self, hash_func='sha256', sec_len=2, nonce_len=16):
+        """Initializes a digital locker
+
+        Keyword arguments:
+        hash_func -- the hashing algorithm to use. See the hashlib documentation
+        for more info on supported algorithms.
+        sec_len -- security parameter. This is used to determine if the locker
+        is unlocked successfully with accuracy (1 - 2 ^ -sec_len).
+        nonce_len -- The number of bytes to use as a nonce (salt).
+        """
         self.is_locked = False
         self.nonce = ' '
-        self.sec_len = 0
+        self.nonce_len = nonce_len
+        self.sec_len = sec_len
         self.cipher = ' '
-        self.hash_func = None
+        self.cipher_len = 0
+        self.hash_func = hash_func
 
-    def lock(self, key, value, hash_func=sha256, sec_len=2):
+    def lock(self, key, value):
         """Locks value using key
 
         Keyword arguments:
         key -- the key to lock the value with.
         value -- the value to lock up.
-        hash_func -- the hashing algorithm to use. It should have the methods update
-        and digest (see hashlib for examples).
-        sec_len -- security parameter. This is used to determine if the locker
-        is unlocked successfully with accuracy (1 - 2 ^ -sec_len).
         """
         if isinstance(value, str):
             value = bytearray(value, 'utf8')
@@ -71,15 +77,11 @@ class DigitalLocker(object):
         if isinstance(key, str):
             key = bytearray(key, 'utf8')
 
-        self.hash_func = hash_func
-        self.nonce = urandom(32)
+        self.nonce = bytearray(urandom(self.nonce_len))
+        self.cipher_len = len(value) + self.sec_len
 
         digest = bytearray(self._digest(key))
 
-        if len(digest) < len(value) + sec_len:
-            raise ValueError('Length of value + sec_len cannot exceed hash length')
-
-        self.sec_len = len(digest) - len(value)
         sec = bytearray(self.sec_len)
         padded_plain = value + sec
         self.cipher = _xor(digest, padded_plain)
@@ -115,38 +117,38 @@ class DigitalLocker(object):
         if not self.is_locked:
             raise Exception('Packing a locker with nothing in it is pointless')
 
-        cipher_len = len(self.cipher)
-        packed = pack('32s', self.nonce)
-        packed += pack('H', self.sec_len)
-        packed += pack('H', cipher_len)
-        packed += pack(str(cipher_len) + 'B', *self.cipher)
+        packed = pack('H', self.sec_len)
+        packed += pack('H', self.cipher_len)
+        packed += pack('H', self.nonce_len)
+        packed += pack(str(self.nonce_len) + 'B', *self.nonce)
+        packed += pack(str(self.cipher_len) + 'B', *self.cipher)
         return packed
 
-    def unpack(self, binary, hash_func=sha256):
+    def unpack(self, binary, hash_func='sha256'):
         """Unpacks the locker
 
         Keyword arguments:
         binary -- The string produced by pack().
         hash_func -- The hash function that was used during lock().
         """
-        self.nonce = unpack('32s', binary[:32])[0]
-        self.sec_len = unpack('H', binary[32:34])[0]
-        cipher_len = unpack('H', binary[34:36])[0]
-        self.cipher = bytearray([binary[off] for off in range(36, 36 + cipher_len)])
+        self.sec_len = unpack('H', binary[:2])[0]
+        self.cipher_len = unpack('H', binary[2:4])[0]
+        self.nonce_len = unpack('H', binary[4:6])[0]
+        self.nonce = bytearray([binary[off] for off in range(6, 6 + self.nonce_len)])
+        c_start = 6 + self.nonce_len
+        self.cipher = bytearray([binary[off] for off in range(c_start, c_start + self.cipher_len)])
+
         self.hash_func = hash_func
         self.is_locked = True
 
     def _digest(self, key):
         """Digests the nonce and key"""
-        hasher = self.hash_func()
-        hasher.update(self.nonce)
-        hasher.update(key)
-        return hasher.digest()
+        return pbkdf2_hmac(self.hash_func, key, self.nonce, 1, self.cipher_len)
 
 class FuzzyExtractor(object):
     """The most basic non-interactive fuzzy extractor"""
 
-    def __init__(self, length, ham_err, rep_err=0.001, hash_func=sha256):
+    def __init__(self, length, ham_err, rep_err=0.001, **locker_args):
         """Initializes a fuzzy extractor
 
         Keyword arguments:
@@ -156,10 +158,11 @@ class FuzzyExtractor(object):
         (1 - rep_err).
         rep_err -- Reproduce error. The probability that a source value within
         ham_err will not produce the same key (default: 0.001).
-        hash_func -- Hashing function to be used by DigitalLocker (default: sha256).
+        locker_args -- Keyword arguments to pass to the underlying digital lockers.
         """
         self.length = length
-        self.hash_func = hash_func
+        self.locker_args = locker_args
+        self.hash_func = ' '
 
         # Calculate the number of helper values needed to be able to reproduce
         # keys given ham_err and rep_err. See "Reusable Fuzzy Extractors for
@@ -184,12 +187,13 @@ class FuzzyExtractor(object):
 
         key = bytearray(urandom(self.length))
         helpers = list()
-        locker = DigitalLocker()
+        locker = DigitalLocker(**self.locker_args)
+        self.hash_func = locker.hash_func
 
         for _ in range(self.num_helpers):
             mask = bytearray(urandom(self.length))
             vector = _and(mask, value)
-            locker.lock(bytearray(vector), key, hash_func=self.hash_func)
+            locker.lock(bytearray(vector), key)
             helpers.append((locker.pack(), mask))
 
         return (key, helpers)
@@ -209,7 +213,7 @@ class FuzzyExtractor(object):
         if self.length != len(value):
             raise ValueError('Cannot reproduce key for value of different length')
 
-        locker = DigitalLocker()
+        locker = DigitalLocker(**self.locker_args)
 
         for locker_bin, mask in helpers:
             vector = _and(mask, value)

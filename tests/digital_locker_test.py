@@ -42,13 +42,23 @@ def test_locker():
         assert value == locker.unlock(key)
         assert locker.unlock(key[:-1]) is None
 
-def test_lock_exception():
-    """Digital lockers should not allow values that are longer than the hash length"""
+def test_lock_long_val():
+    """Digital lockers should handle values that are longer than the underlying hashing algorithm"""
     key = bytearray('AABBCCDD', 'utf8')
-    value = bytearray('AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPP', 'utf8')  # This is too long for sha256
+    value = bytearray('AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPP', 'utf8')  # This is longer than sha256
     locker = DigitalLocker()
-    with pytest.raises(ValueError):
-        locker.lock(key, value)
+
+    locker.lock(key, value)
+    assert locker.unlock(key) == value
+
+def test_lock_params():
+    """Test the optional parameters for lockers"""
+    key = bytearray('AABBCCDD', 'utf8')
+    value = bytearray('AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPP', 'utf8')
+    locker = DigitalLocker('sha1', 3, 8)
+
+    locker.lock(key, value)
+    assert locker.unlock(key) == value
 
 def test_unlock_exception():
     """Digital lockers should not allow unlocking before a value has been locked into them"""
@@ -67,5 +77,19 @@ def test_packing():
 
     new_locker = DigitalLocker()
     new_locker.unpack(binary)
+
+    assert new_locker.unlock(key) == val
+
+def test_packing_params():
+    """Tests that packing works for values locked with optional parameters"""
+    key = bytearray('AAAAAAAA', 'utf8')
+    val = bytearray('BBBBBBBB', 'utf8')
+
+    locker = DigitalLocker('sha512', 4, 32)
+    locker.lock(key, val)
+    binary = locker.pack()
+
+    new_locker = DigitalLocker()
+    new_locker.unpack(binary, 'sha512')
 
     assert new_locker.unlock(key) == val
