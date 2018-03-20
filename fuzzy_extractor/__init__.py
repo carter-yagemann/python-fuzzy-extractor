@@ -162,7 +162,6 @@ class FuzzyExtractor(object):
         """
         self.length = length
         self.locker_args = locker_args
-        self.hash_func = ' '
 
         # Calculate the number of helper values needed to be able to reproduce
         # keys given ham_err and rep_err. See "Reusable Fuzzy Extractors for
@@ -173,6 +172,9 @@ class FuzzyExtractor(object):
 
         # num_helpers needs to be an integer
         self.num_helpers = int(round(num_helpers))
+
+        self.locker = DigitalLocker(**self.locker_args)
+        self.hash_func = self.locker.hash_func
 
     def generate(self, value):
         """Takes a source value and produces a key and public helper
@@ -187,14 +189,12 @@ class FuzzyExtractor(object):
 
         key = bytearray(urandom(self.length))
         helpers = list()
-        locker = DigitalLocker(**self.locker_args)
-        self.hash_func = locker.hash_func
 
         for _ in range(self.num_helpers):
             mask = bytearray(urandom(self.length))
             vector = _and(mask, value)
-            locker.lock(bytearray(vector), key)
-            helpers.append((locker.pack(), mask))
+            self.locker.lock(bytearray(vector), key)
+            helpers.append((self.locker.pack(), mask))
 
         return (key, helpers)
 
@@ -213,12 +213,10 @@ class FuzzyExtractor(object):
         if self.length != len(value):
             raise ValueError('Cannot reproduce key for value of different length')
 
-        locker = DigitalLocker(**self.locker_args)
-
         for locker_bin, mask in helpers:
             vector = _and(mask, value)
-            locker.unpack(locker_bin, self.hash_func)
-            res = locker.unlock(bytearray(vector))
+            self.locker.unpack(locker_bin, self.hash_func)
+            res = self.locker.unlock(bytearray(vector))
             if not res is None:
                 return res
 
