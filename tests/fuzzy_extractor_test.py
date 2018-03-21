@@ -45,7 +45,7 @@ def test_reproduce():
     chars = string.ascii_letters
     values = list()
     for _ in range(150):
-        values.append(''.join(random.choice(chars) for _ in range(val_len)))
+        values.append("".join(random.choice(chars) for _ in range(val_len)))
 
     for value in values:
         extractor = FuzzyExtractor(val_len, 2)
@@ -60,7 +60,7 @@ def test_reproduce_fuzzy():
     chars = string.ascii_letters
     values = list()
     for _ in range(5):
-        values.append(''.join(random.choice(chars) for _ in range(val_len)))
+        values.append("".join(random.choice(chars) for _ in range(val_len)))
 
     for value in values:
         # extractor can handle at least 8 bit flips
@@ -83,3 +83,21 @@ def test_reproduce_bad():
 
     assert extractor.reproduce(value_good, helpers) == key
     assert extractor.reproduce(value_bad, helpers) != key
+
+def test_encoding():
+    """Test ability to encode and decode non-ASCII characters"""
+    value = b'\xFF' * 15
+
+    extractor = FuzzyExtractor(len(value), 2)
+    key, helpers = extractor.generate(value)
+
+    assert extractor.reproduce(value, helpers) == key
+
+def test_locker_args():
+    """Test that locker args passed to FuzzyExtractor work"""
+    val = b'AAAABBBBCCCCDDDD'
+
+    extractor = FuzzyExtractor(len(val), 1, hash_func='sha512', sec_len=3, nonce_len=32)
+    key, helpers = extractor.generate(val)
+
+    assert extractor.reproduce(val, helpers) == key

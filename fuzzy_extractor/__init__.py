@@ -24,144 +24,102 @@ __author__ = 'Carter Yagemann'
 __email__ = 'yagemann@gatech.edu'
 __copyright__ = 'Copyright (c) 2018 Carter Yagemann'
 __license__ = 'GPLv3+'
-__version__ = '0.1'
+__version__ = '0.2'
 __url__ = 'https://github.com/carter-yagemann/python-fuzzy-extractor'
 __download_url__ = 'https://github.com/carter-yagemann/python-fuzzy-extractor'
 __description__ = 'A Python implementation of fuzzy extractor'
 
 from math import log
 from os import urandom
-from hashlib import sha256
-from base64 import b64encode
-
-def _ord(string):
-    """Converts a string into an ord array"""
-    res = list()
-    for char in string:
-        if isinstance(char, int):
-            res.append(char)
-        else:
-            res.append(ord(char))
-    return res
-
-def _str(ords):
-    """Converts an ord array back into a string"""
-    return ''.join(chr(char) for char in ords)
-
-def _xor(ord_a, ord_b):
-    """Bitwise xor on two ord arrays"""
-    return [val_a ^ val_b for val_a, val_b in zip(ord_a, ord_b)]
-
-def _and(ord_a, ord_b):
-    """Bitwise and on two ord arrays"""
-    return [val_a & val_b for val_a, val_b in zip(ord_a, ord_b)]
-
-class DigitalLocker(object):
-    """A digital locker primitive"""
-
-    def __init__(self):
-        """Initializes a digital locker"""
-        self.is_locked = False
-        self.nonce = ' '
-        self.sec_len = 0
-        self.cipher = ' '
-        self.hash_func = None
-
-    def lock(self, key, value, hash_func=sha256, sec_len=2):
-        """Locks value using key
-
-        Keyword arguments:
-        key -- the key to lock the value with.
-        value -- the value to lock up.
-        hash_func -- the hashing algorithm to use. It should have the methods update
-        and digest (see hashlib for examples).
-        sec_len -- security parameter. This is used to determine if the locker
-        is unlocked successfully with accuracy (1 - 2 ^ -sec_len).
-        """
-        value = _ord(value)
-        self.hash_func = hash_func
-        self.nonce = urandom(32)
-
-        digest = _ord(self._digest(key))
-
-        if len(digest) < len(value) + sec_len:
-            raise ValueError('Length of value + sec_len cannot exceed hash length')
-
-        self.sec_len = len(digest) - len(value)
-        sec = [0] * self.sec_len
-        padded_plain = value + sec
-        self.cipher = _xor(digest, padded_plain)
-        self.is_locked = True
-
-    def unlock(self, key):
-        """Unlocks the stored value using key
-
-        Returns None if the key fails to decrypt the locked value.
-        """
-        if not self.is_locked:
-            raise Exception('Cannot unlock a DigitalLocker with nothing in it')
-
-        digest = _ord(self._digest(key))
-
-        plain = _xor(digest, self.cipher)
-        if plain[-self.sec_len:] != [0] * self.sec_len:
-            return None
-
-        return _str(plain[:-self.sec_len])
-
-    def _digest(self, key):
-        """Digests the nonce and key"""
-        hasher = self.hash_func()
-        hasher.update(self.nonce)
-        hasher.update(key.encode('utf-8'))
-        return hasher.digest()
+from struct import pack, unpack
+from fastpbkdf2 import pbkdf2_hmac
+import numpy as np
 
 class FuzzyExtractor(object):
     """The most basic non-interactive fuzzy extractor"""
 
-    def __init__(self, length, ham_err, rep_err=0.001):
+    def __init__(self, length, ham_err, rep_err=0.001, **locker_args):
         """Initializes a fuzzy extractor
 
-        Keyword arguments:
-        length -- The length in bytes of source values and keys.
-        ham_err -- Hamming error. The number of bits that can be flipped in the
-        source value and still produce the same key with probability
-        (1 - rep_err).
-        rep_err -- Reproduce error. The probability that a source value within
-        ham_err will not produce the same key (default: 0.001).
+        :param length: The length in bytes of source values and keys.
+        :param ham_err: Hamming error. The number of bits that can be flipped in the
+            source value and still produce the same key with probability (1 - rep_err).
+        :param rep_err: Reproduce error. The probability that a source value within
+            ham_err will not produce the same key (default: 0.001).
+        :param locker_args: Keyword arguments to pass to the underlying digital lockers.
+            See parse_locker_args() for more details.
         """
+        self.parse_locker_args(**locker_args)
         self.length = length
+        self.cipher_len = self.length + self.sec_len
 
         # Calculate the number of helper values needed to be able to reproduce
         # keys given ham_err and rep_err. See "Reusable Fuzzy Extractors for
         # Low-Entropy Distributions" by Canetti, et al. for details.
         bits = length * 8
-        #const = int(round(float((ham_err * bits)) / (bits * log(bits))))
         const = float(ham_err) / log(bits)
         num_helpers = (bits ** const) * log(float(2) / rep_err, 2)
 
         # num_helpers needs to be an integer
         self.num_helpers = int(round(num_helpers))
 
+    def parse_locker_args(self, hash_func='sha256', sec_len=2, nonce_len=16):
+        """Parse arguments for digital lockers
+
+        :param hash_func: The hash function to use for the digital locker (default: sha256).
+        :param sec_len: security parameter. This is used to determine if the locker
+            is unlocked successfully with accuracy (1 - 2 ^ -sec_len).
+        :param nonce_len: Length in bytes of nonce (salt) used in digital locker (default: 16).
+        """
+        self.hash_func = hash_func
+        self.sec_len = sec_len
+        self.nonce_len = nonce_len
+
     def generate(self, value):
         """Takes a source value and produces a key and public helper
 
         This method should be used once at enrollment.
 
-        Keyword arguments:
-        value -- the value to generate a key and public helper for.
+        Note that the "public helper" is actually a tuple. This whole tuple should be
+        passed as the helpers argument to reproduce().
+
+        :param value: the value to generate a key and public helper for.
+        :rtype: (key, helper)
         """
-        key = _str(_ord(urandom(self.length)))
-        helpers = list()
+        if isinstance(value, (bytes, str)):
+            value = np.fromstring(value, dtype=np.int8)
 
-        for _ in range(self.num_helpers):
-            mask = _ord(urandom(self.length))
-            vector = _and(mask, _ord(value))
-            locker = DigitalLocker()
-            locker.lock(_str(vector), key)
-            helpers.append((locker, mask))
+        key = np.fromstring(urandom(self.length), dtype=np.int8)
+        key_pad = np.concatenate((key, np.zeros(self.sec_len, dtype=np.int8)))
 
-        return (key, helpers)
+        nonces = np.zeros((self.num_helpers, self.nonce_len), dtype=np.int8)
+        masks = np.zeros((self.num_helpers, self.length), dtype=np.int8)
+        digests = np.zeros((self.num_helpers, self.cipher_len), dtype=np.int8)
+
+        for helper in range(self.num_helpers):
+            nonces[helper] = np.fromstring(urandom(self.nonce_len), dtype=np.int8)
+            masks[helper] = np.fromstring(urandom(self.length), dtype=np.int8)
+
+        # By masking the value with random masks, we adjust the probability that given
+        # another noisy reading of the same source, enough bits will match for the new
+        # reading & mask to equal the old reading & mask.
+
+        vectors = np.bitwise_and(masks, value)
+
+        # The "digital locker" is a simple cyrpto primitive made by hashing a "key"
+        # xor a "value". The only efficient way to get the value back is to know
+        # the key, which can then be hashed again xor the ciphertext. This is referred
+        # to as locking and unlocking the digital locker, respectively.
+
+        for helper in range(self.num_helpers):
+            d_vector = vectors[helper].tobytes()
+            d_nonce = nonces[helper].tobytes()
+            digest = pbkdf2_hmac(self.hash_func, d_vector, d_nonce, 1, self.cipher_len)
+            digests[helper] = np.fromstring(digest, dtype=np.int8)
+
+        ciphers = np.bitwise_xor(digests, key_pad)
+
+        return (key.tobytes(), (ciphers, masks, nonces))
 
     def reproduce(self, value, helpers):
         """Takes a source value and a public helper and produces a key
@@ -169,16 +127,38 @@ class FuzzyExtractor(object):
         Given a helper value that matches and a source value that is close to
         those produced by generate, the same key will be produced.
 
-        value -- the value to reproduce a key for.
-        helpers -- the previously generated public helper.
+        :param value: the value to reproduce a key for.
+        :param helpers: the previously generated public helper.
+        :rtype: key or None
         """
+        if isinstance(value, (bytes, str)):
+            value = np.fromstring(value, dtype=np.int8)
+
         if self.length != len(value):
             raise ValueError('Cannot reproduce key for value of different length')
 
-        for locker, mask in helpers:
-            vector = _and(mask, _ord(value))
-            res = locker.unlock(_str(vector))
-            if not res is None:
-                return res
+        ciphers = helpers[0]
+        masks = helpers[1]
+        nonces = helpers[2]
+
+        vectors = np.bitwise_and(masks, value)
+
+        digests = np.zeros((self.num_helpers, self.cipher_len), dtype=np.int8)
+        for helper in range(self.num_helpers):
+            d_vector = vectors[helper].tobytes()
+            d_nonce = nonces[helper].tobytes()
+            digest = pbkdf2_hmac(self.hash_func, d_vector, d_nonce, 1, self.cipher_len)
+            digests[helper] = np.fromstring(digest, dtype=np.int8)
+
+        plains = np.bitwise_xor(digests, ciphers)
+
+        # When the key was stored in the digital lockers, extra null bytes were added
+        # onto the end, which makes it each to detect if we've successfully unlocked
+        # the locker.
+
+        checks = np.sum(plains[:, -self.sec_len:], axis=1)
+        for check in range(self.num_helpers):
+            if checks[check] == 0:
+                return plains[check, :-self.sec_len].tobytes()
 
         return None
