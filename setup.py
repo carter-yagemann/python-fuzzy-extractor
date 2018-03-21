@@ -52,9 +52,9 @@ setup(
     maintainer_email=extract_metaitem('email'),
     url=extract_metaitem('url'),
     download_url=extract_metaitem('download_url'),
-    packages=find_packages(exclude=('tests', 'docs')),
+    packages=find_packages(exclude=('tests', 'doc')),
     platforms=['Any'],
-    install_requires=[],
+    install_requires=['fastpbkdf2', 'numpy'],
     tests_require=['pytest'],
     keywords='fuzzy extractor security',
     classifiers=[

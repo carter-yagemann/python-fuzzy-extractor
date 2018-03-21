@@ -45,7 +45,7 @@ def test_reproduce():
     chars = string.ascii_letters
     values = list()
     for _ in range(150):
-        values.append(bytearray("".join(random.choice(chars) for _ in range(val_len)), 'utf8'))
+        values.append("".join(random.choice(chars) for _ in range(val_len)))
 
     for value in values:
         extractor = FuzzyExtractor(val_len, 2)
@@ -60,7 +60,7 @@ def test_reproduce_fuzzy():
     chars = string.ascii_letters
     values = list()
     for _ in range(5):
-        values.append(bytearray("".join(random.choice(chars) for _ in range(val_len)), 'utf8'))
+        values.append("".join(random.choice(chars) for _ in range(val_len)))
 
     for value in values:
         # extractor can handle at least 8 bit flips
@@ -68,7 +68,7 @@ def test_reproduce_fuzzy():
         key, helpers = extractor.generate(value)
         # change a random character, which could flip up to 8 bits
         pos = random.randint(0, val_len - 2)
-        value_noisy = value[:pos] + bytearray(random.choice(chars), 'utf8') + value[pos + 1:]
+        value_noisy = value[:pos] + random.choice(chars) + value[pos + 1:]
         # extractor should still produce same key
         assert extractor.reproduce(value_noisy, helpers) == key
 
@@ -86,7 +86,7 @@ def test_reproduce_bad():
 
 def test_encoding():
     """Test ability to encode and decode non-ASCII characters"""
-    value = bytearray(u'\xFF' * 15, 'utf8')
+    value = b'\xFF' * 15
 
     extractor = FuzzyExtractor(len(value), 2)
     key, helpers = extractor.generate(value)
@@ -95,9 +95,9 @@ def test_encoding():
 
 def test_locker_args():
     """Test that locker args passed to FuzzyExtractor work"""
-    val = bytearray('AAAABBBBCCCCDDDD', 'utf8')
+    val = b'AAAABBBBCCCCDDDD'
 
-    extractor = FuzzyExtractor(len(val), 1, hash_func='sha256', sec_len=3, nonce_len=32)
+    extractor = FuzzyExtractor(len(val), 1, hash_func='sha512', sec_len=3, nonce_len=32)
     key, helpers = extractor.generate(val)
 
     assert extractor.reproduce(val, helpers) == key
