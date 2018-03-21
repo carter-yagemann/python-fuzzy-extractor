@@ -22,8 +22,8 @@ info:
 	@pip --version
 
 docs:
-	$(MAKE) -C doc clean
-	$(MAKE) -C doc html
+	$(MAKE) -C docs clean
+	$(MAKE) -C docs html
 
 lint:
 	pylint fuzzy_extractor/*.py tests/*.py

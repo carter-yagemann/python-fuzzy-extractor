@@ -24,4 +24,4 @@ develop-eggs
 /.pytest_cache
 
 # build docs
-doc/_build/**
+docs/_build/**

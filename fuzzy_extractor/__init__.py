@@ -41,15 +41,13 @@ class FuzzyExtractor(object):
     def __init__(self, length, ham_err, rep_err=0.001, **locker_args):
         """Initializes a fuzzy extractor
 
-        Keyword arguments:
-        length -- The length in bytes of source values and keys.
-        ham_err -- Hamming error. The number of bits that can be flipped in the
-        source value and still produce the same key with probability
-        (1 - rep_err).
-        rep_err -- Reproduce error. The probability that a source value within
-        ham_err will not produce the same key (default: 0.001).
-        locker_args -- Keyword arguments to pass to the underlying digital lockers.
-        See parse_locker_args() for more details.
+        :param length: The length in bytes of source values and keys.
+        :param ham_err: Hamming error. The number of bits that can be flipped in the
+            source value and still produce the same key with probability (1 - rep_err).
+        :param rep_err: Reproduce error. The probability that a source value within
+            ham_err will not produce the same key (default: 0.001).
+        :param locker_args: Keyword arguments to pass to the underlying digital lockers.
+            See parse_locker_args() for more details.
         """
         self.parse_locker_args(**locker_args)
         self.length = length
@@ -68,11 +66,10 @@ class FuzzyExtractor(object):
     def parse_locker_args(self, hash_func='sha256', sec_len=2, nonce_len=16):
         """Parse arguments for digital lockers
 
-        Keyword arguments:
-        hash_func -- The hash function to use for the digital locker (default: sha256).
-        sec_len -- security parameter. This is used to determine if the locker
-        is unlocked successfully with accuracy (1 - 2 ^ -sec_len).
-        nonce_len -- Length in bytes of nonce (salt) used in digital locker (default: 16).
+        :param hash_func: The hash function to use for the digital locker (default: sha256).
+        :param sec_len: security parameter. This is used to determine if the locker
+            is unlocked successfully with accuracy (1 - 2 ^ -sec_len).
+        :param nonce_len: Length in bytes of nonce (salt) used in digital locker (default: 16).
         """
         self.hash_func = hash_func
         self.sec_len = sec_len
@@ -86,8 +83,8 @@ class FuzzyExtractor(object):
         Note that the "public helper" is actually a tuple. This whole tuple should be
         passed as the helpers argument to reproduce().
 
-        Keyword arguments:
-        value -- the value to generate a key and public helper for.
+        :param value: the value to generate a key and public helper for.
+        :rtype: (key, helper)
         """
         if isinstance(value, (bytes, str)):
             value = np.fromstring(value, dtype=np.int8)
@@ -130,8 +127,9 @@ class FuzzyExtractor(object):
         Given a helper value that matches and a source value that is close to
         those produced by generate, the same key will be produced.
 
-        value -- the value to reproduce a key for.
-        helpers -- the previously generated public helper.
+        :param value: the value to reproduce a key for.
+        :param helpers: the previously generated public helper.
+        :rtype: key or None
         """
         if isinstance(value, (bytes, str)):
             value = np.fromstring(value, dtype=np.int8)

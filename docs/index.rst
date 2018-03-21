@@ -3,7 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to fuzzy_extractor's documentation!
+Welcome to Fuzzy Extractor's documentation!
 ===========================================
 
 .. toctree::
@@ -12,6 +12,7 @@ Welcome to fuzzy_extractor's documentation!
 
    installation
    usage
+   fuzzy_extractor
    references
    license
 

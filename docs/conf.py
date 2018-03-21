@@ -17,9 +17,11 @@
 # sys.path.insert(0, os.path.abspath('.'))
 import sphinx_rtd_theme
 import os
+import sys
 import re
 import codecs
 
+sys.path.insert(0, os.path.abspath('../'))
 cwd = os.path.abspath(os.path.dirname(__file__))
 
 def read(filename):
@@ -57,6 +59,7 @@ release = extract_metaitem('version')
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'sphinx.ext.autodoc'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -147,7 +150,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'fuzzy_extractor.tex', u'fuzzy_extractor Documentation',
+    (master_doc, 'fuzzy_extractor.tex', u'Fuzzy Extractor Documentation',
      u'Carter Yagemann', 'manual'),
 ]
 
@@ -157,7 +160,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'fuzzy_extractor', u'fuzzy_extractor Documentation',
+    (master_doc, 'fuzzy_extractor', u'Fuzzy Extractor Documentation',
      [author], 1)
 ]
 
@@ -168,7 +171,7 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'fuzzy_extractor', u'fuzzy_extractor Documentation',
+    (master_doc, 'fuzzy_extractor', u'Fuzzy Extractor Documentation',
      author, 'fuzzy_extractor', 'One line description of project.',
      'Miscellaneous'),
 ]
