@@ -83,6 +83,9 @@ class FuzzyExtractor(object):
 
         This method should be used once at enrollment.
 
+        Note that the "public helper" is actually a tuple. This whole tuple should be
+        passed as the helpers argument to reproduce().
+
         Keyword arguments:
         value -- the value to generate a key and public helper for.
         """
@@ -100,7 +103,16 @@ class FuzzyExtractor(object):
             nonces[helper] = np.fromstring(urandom(self.nonce_len), dtype=np.int8)
             masks[helper] = np.fromstring(urandom(self.length), dtype=np.int8)
 
+        # By masking the value with random masks, we adjust the probability that given
+        # another noisy reading of the same source, enough bits will match for the new
+        # reading & mask to equal the old reading & mask.
+
         vectors = np.bitwise_and(masks, value)
+
+        # The "digital locker" is a simple cyrpto primitive made by hashing a "key"
+        # xor a "value". The only efficient way to get the value back is to know
+        # the key, which can then be hashed again xor the ciphertext. This is referred
+        # to as locking and unlocking the digital locker, respectively.
 
         for helper in range(self.num_helpers):
             d_vector = vectors[helper].tobytes()
@@ -141,6 +153,11 @@ class FuzzyExtractor(object):
             digests[helper] = np.fromstring(digest, dtype=np.int8)
 
         plains = np.bitwise_xor(digests, ciphers)
+
+        # When the key was stored in the digital lockers, extra null bytes were added
+        # onto the end, which makes it each to detect if we've successfully unlocked
+        # the locker.
+
         checks = np.sum(plains[:, -self.sec_len:], axis=1)
         for check in range(self.num_helpers):
             if checks[check] == 0:
