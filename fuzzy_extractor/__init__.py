@@ -24,7 +24,7 @@ __author__ = 'Carter Yagemann'
 __email__ = 'yagemann@gatech.edu'
 __copyright__ = 'Copyright (c) 2018 Carter Yagemann'
 __license__ = 'GPLv3+'
-__version__ = '0.2'
+__version__ = '0.3'
 __url__ = 'https://github.com/carter-yagemann/python-fuzzy-extractor'
 __download_url__ = 'https://github.com/carter-yagemann/python-fuzzy-extractor'
 __description__ = 'A Python implementation of fuzzy extractor'
@@ -87,18 +87,18 @@ class FuzzyExtractor(object):
         :rtype: (key, helper)
         """
         if isinstance(value, (bytes, str)):
-            value = np.fromstring(value, dtype=np.int8)
+            value = np.fromstring(value, dtype=np.uint8)
 
-        key = np.fromstring(urandom(self.length), dtype=np.int8)
-        key_pad = np.concatenate((key, np.zeros(self.sec_len, dtype=np.int8)))
+        key = np.fromstring(urandom(self.length), dtype=np.uint8)
+        key_pad = np.concatenate((key, np.zeros(self.sec_len, dtype=np.uint8)))
 
-        nonces = np.zeros((self.num_helpers, self.nonce_len), dtype=np.int8)
-        masks = np.zeros((self.num_helpers, self.length), dtype=np.int8)
-        digests = np.zeros((self.num_helpers, self.cipher_len), dtype=np.int8)
+        nonces = np.zeros((self.num_helpers, self.nonce_len), dtype=np.uint8)
+        masks = np.zeros((self.num_helpers, self.length), dtype=np.uint8)
+        digests = np.zeros((self.num_helpers, self.cipher_len), dtype=np.uint8)
 
         for helper in range(self.num_helpers):
-            nonces[helper] = np.fromstring(urandom(self.nonce_len), dtype=np.int8)
-            masks[helper] = np.fromstring(urandom(self.length), dtype=np.int8)
+            nonces[helper] = np.fromstring(urandom(self.nonce_len), dtype=np.uint8)
+            masks[helper] = np.fromstring(urandom(self.length), dtype=np.uint8)
 
         # By masking the value with random masks, we adjust the probability that given
         # another noisy reading of the same source, enough bits will match for the new
@@ -115,7 +115,7 @@ class FuzzyExtractor(object):
             d_vector = vectors[helper].tobytes()
             d_nonce = nonces[helper].tobytes()
             digest = pbkdf2_hmac(self.hash_func, d_vector, d_nonce, 1, self.cipher_len)
-            digests[helper] = np.fromstring(digest, dtype=np.int8)
+            digests[helper] = np.fromstring(digest, dtype=np.uint8)
 
         ciphers = np.bitwise_xor(digests, key_pad)
 
@@ -132,7 +132,7 @@ class FuzzyExtractor(object):
         :rtype: key or None
         """
         if isinstance(value, (bytes, str)):
-            value = np.fromstring(value, dtype=np.int8)
+            value = np.fromstring(value, dtype=np.uint8)
 
         if self.length != len(value):
             raise ValueError('Cannot reproduce key for value of different length')
@@ -143,12 +143,12 @@ class FuzzyExtractor(object):
 
         vectors = np.bitwise_and(masks, value)
 
-        digests = np.zeros((self.num_helpers, self.cipher_len), dtype=np.int8)
+        digests = np.zeros((self.num_helpers, self.cipher_len), dtype=np.uint8)
         for helper in range(self.num_helpers):
             d_vector = vectors[helper].tobytes()
             d_nonce = nonces[helper].tobytes()
             digest = pbkdf2_hmac(self.hash_func, d_vector, d_nonce, 1, self.cipher_len)
-            digests[helper] = np.fromstring(digest, dtype=np.int8)
+            digests[helper] = np.fromstring(digest, dtype=np.uint8)
 
         plains = np.bitwise_xor(digests, ciphers)
 
