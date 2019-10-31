@@ -106,7 +106,7 @@ class FuzzyExtractor(object):
 
         vectors = np.bitwise_and(masks, value)
 
-        # The "digital locker" is a simple cyrpto primitive made by hashing a "key"
+        # The "digital locker" is a simple crypto primitive made by hashing a "key"
         # xor a "value". The only efficient way to get the value back is to know
         # the key, which can then be hashed again xor the ciphertext. This is referred
         # to as locking and unlocking the digital locker, respectively.
