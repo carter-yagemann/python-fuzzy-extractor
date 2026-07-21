@@ -54,7 +54,7 @@ setup(
     download_url=extract_metaitem('download_url'),
     packages=find_packages(exclude=('tests', 'docs')),
     platforms=['Any'],
-    install_requires=['fastpbkdf2', 'numpy'],
+    install_requires=['numpy'],
     tests_require=['pytest'],
     keywords='fuzzy extractor security',
     classifiers=[
@@ -71,5 +71,7 @@ setup(
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
     ],
 )

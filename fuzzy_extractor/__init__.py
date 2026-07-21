@@ -32,7 +32,7 @@ __description__ = 'A Python implementation of fuzzy extractor'
 from math import log
 from os import urandom
 from struct import pack, unpack
-from fastpbkdf2 import pbkdf2_hmac
+from hashlib import pbkdf2_hmac
 import numpy as np
 
 class FuzzyExtractor(object):

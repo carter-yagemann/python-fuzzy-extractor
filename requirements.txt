@@ -1,2 +1,1 @@
-fastpbkdf2>=0.2
 numpy>=1.12.1
